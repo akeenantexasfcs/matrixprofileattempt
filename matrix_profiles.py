@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.dates import DateFormatter
+from scipy.spatial.distance import euclidean
 
 def get_data(ticker, start="2005-01-01", end=None):
     data = yf.download(ticker, start=start, end=end)
@@ -50,24 +51,23 @@ def main():
         top_matches_idx = np.argsort(mp[:, 0])[:3]
 
         # Plotting
-        fig, axs = plt.subplots(4, 1, figsize=(12, 16), sharex=False)
+        fig, ax = plt.subplots(figsize=(12, 6))
         
         # Plot queried date range
-        axs[0].plot(subsequence.index, subsequence, label='Queried Range', color='blue')
-        axs[0].set_title(f'Queried Range: {start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%d")}')
-        axs[0].legend()
+        ax.plot(subsequence.index, subsequence, label='Queried Range', color='blue', linestyle=':', linewidth=2)
 
         # Plot top 3 matches
-        for i, idx in enumerate(top_matches_idx, start=1):
+        colors = ['red', 'green', 'orange']
+        for i, idx in enumerate(top_matches_idx):
             match_data = data.iloc[idx:idx+len(subsequence)]
-            axs[i].plot(match_data.index, match_data, label=f'Match {i}', color='red')
-            axs[i].set_title(f'Match {i}: {match_data.index[0].strftime("%Y-%m-%d")} to {match_data.index[-1].strftime("%Y-%m-%d")}')
-            axs[i].legend()
+            # Align the match data with the queried range for easier comparison
+            aligned_dates = pd.date_range(start=subsequence.index[0], periods=len(match_data), freq='D')
+            ax.plot(aligned_dates, match_data.values, label=f'Match {i+1}', color=colors[i])
 
-        # Format x-axis to show dates
-        for ax in axs:
-            ax.xaxis.set_major_formatter(DateFormatter('%Y-%m-%d'))
-            plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha='right')
+        ax.set_title(f'Queried Range and Top Matches - {ticker}')
+        ax.legend()
+        ax.xaxis.set_major_formatter(DateFormatter('%Y-%m-%d'))
+        plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha='right')
 
         plt.tight_layout()
         st.pyplot(fig)
@@ -79,12 +79,19 @@ def main():
             match_end = data.index[idx + len(subsequence) - 1]
             st.write(f"Match {i}: {match_start.strftime('%Y-%m-%d')} to {match_end.strftime('%Y-%m-%d')}")
 
-        # Calculate and display correlation coefficients
-        st.subheader("Correlation with Queried Range")
+        # Calculate and display Euclidean distances
+        st.subheader("Euclidean Distances from Queried Range")
+        
+        # Normalize the subsequence for fair comparison
+        subsequence_normalized = (subsequence - subsequence.mean()) / subsequence.std()
+        
         for i, idx in enumerate(top_matches_idx, start=1):
             match_data = data.iloc[idx:idx+len(subsequence)]
-            correlation = subsequence.corr(match_data)
-            st.write(f"Match {i} correlation: {correlation:.4f}")
+            # Normalize the match data
+            match_data_normalized = (match_data - match_data.mean()) / match_data.std()
+            # Calculate Euclidean distance
+            distance = euclidean(subsequence_normalized, match_data_normalized)
+            st.write(f"Match {i} distance: {distance:.4f}")
 
 if __name__ == "__main__":
     main()

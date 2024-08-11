@@ -32,6 +32,10 @@ def main():
         # Fetch data from 2005 to the end date
         data = get_data(ticker, start="2005-01-01", end=end_date)
 
+        # Convert start_date and end_date to pandas Timestamp
+        start_date = pd.Timestamp(start_date)
+        end_date = pd.Timestamp(end_date)
+
         # Extract the subsequence for the user-defined date range
         subsequence = data[start_date:end_date]
 
@@ -50,14 +54,14 @@ def main():
         
         # Plot queried date range
         axs[0].plot(subsequence.index, subsequence, label='Queried Range', color='blue')
-        axs[0].set_title(f'Queried Range: {start_date.date()} to {end_date.date()}')
+        axs[0].set_title(f'Queried Range: {start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%d")}')
         axs[0].legend()
 
         # Plot top 3 matches
         for i, idx in enumerate(top_matches_idx, start=1):
             match_data = data.iloc[idx:idx+len(subsequence)]
             axs[i].plot(match_data.index, match_data, label=f'Match {i}', color='red')
-            axs[i].set_title(f'Match {i}: {match_data.index[0].date()} to {match_data.index[-1].date()}')
+            axs[i].set_title(f'Match {i}: {match_data.index[0].strftime("%Y-%m-%d")} to {match_data.index[-1].strftime("%Y-%m-%d")}')
             axs[i].legend()
 
         # Format x-axis to show dates
@@ -73,7 +77,7 @@ def main():
         for i, idx in enumerate(top_matches_idx, start=1):
             match_start = data.index[idx]
             match_end = data.index[idx + len(subsequence) - 1]
-            st.write(f"Match {i}: {match_start.date()} to {match_end.date()}")
+            st.write(f"Match {i}: {match_start.strftime('%Y-%m-%d')} to {match_end.strftime('%Y-%m-%d')}")
 
         # Calculate and display correlation coefficients
         st.subheader("Correlation with Queried Range")

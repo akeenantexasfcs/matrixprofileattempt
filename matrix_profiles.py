@@ -10,13 +10,14 @@ import stumpy
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib.dates import DateFormatter
 
 def get_data(ticker, start="2005-01-01", end=None):
     data = yf.download(ticker, start=start, end=end)
     return data['Close']
 
 def main():
-    st.title("Stock Matrix Profile Analysis")
+    st.title("Stock Matrix Profile Analysis - Motif Juxtaposition")
 
     ticker = st.text_input("Enter stock ticker (e.g., QQQ):", "QQQ")
     
@@ -31,14 +32,11 @@ def main():
         # Fetch data from 2005 to the end date
         data = get_data(ticker, start="2005-01-01", end=end_date)
 
-        # Calculate window size (e.g., 30 days)
-        window_size = 30
-
         # Extract the subsequence for the user-defined date range
         subsequence = data[start_date:end_date]
 
-        if len(subsequence) < window_size:
-            st.error(f"Selected date range is too short. Please select at least {window_size} days.")
+        if len(subsequence) < 5:  # Arbitrary minimum length
+            st.error(f"Selected date range is too short. Please select a longer period.")
             return
 
         # Calculate matrix profile
@@ -48,31 +46,41 @@ def main():
         top_matches_idx = np.argsort(mp[:, 0])[:3]
 
         # Plotting
-        fig, axs = plt.subplots(2, 1, figsize=(12, 10), sharex=True)
+        fig, axs = plt.subplots(4, 1, figsize=(12, 16), sharex=False)
         
-        # Plot full time series
-        axs[0].plot(data.index, data, label='Full Time Series')
-        axs[0].set_title('Complete Time Series')
+        # Plot queried date range
+        axs[0].plot(subsequence.index, subsequence, label='Queried Range', color='blue')
+        axs[0].set_title(f'Queried Range: {start_date.date()} to {end_date.date()}')
         axs[0].legend()
 
-        # Plot subsequence and matches
-        axs[1].plot(subsequence.index, subsequence, label='Selected Window', color='red', linewidth=2)
-        for idx in top_matches_idx:
+        # Plot top 3 matches
+        for i, idx in enumerate(top_matches_idx, start=1):
             match_data = data.iloc[idx:idx+len(subsequence)]
-            axs[1].plot(match_data.index, match_data, label=f'Match starting at {match_data.index[0].date()}')
-        
-        axs[1].set_title('Selected Window and Top Matches')
-        axs[1].legend()
+            axs[i].plot(match_data.index, match_data, label=f'Match {i}', color='red')
+            axs[i].set_title(f'Match {i}: {match_data.index[0].date()} to {match_data.index[-1].date()}')
+            axs[i].legend()
+
+        # Format x-axis to show dates
+        for ax in axs:
+            ax.xaxis.set_major_formatter(DateFormatter('%Y-%m-%d'))
+            plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha='right')
 
         plt.tight_layout()
         st.pyplot(fig)
 
         # Display match details
-        st.subheader("Top Matches Details")
-        for idx in top_matches_idx:
+        st.subheader("Match Details")
+        for i, idx in enumerate(top_matches_idx, start=1):
             match_start = data.index[idx]
             match_end = data.index[idx + len(subsequence) - 1]
-            st.write(f"Match period: {match_start.date()} to {match_end.date()}")
+            st.write(f"Match {i}: {match_start.date()} to {match_end.date()}")
+
+        # Calculate and display correlation coefficients
+        st.subheader("Correlation with Queried Range")
+        for i, idx in enumerate(top_matches_idx, start=1):
+            match_data = data.iloc[idx:idx+len(subsequence)]
+            correlation = subsequence.corr(match_data)
+            st.write(f"Match {i} correlation: {correlation:.4f}")
 
 if __name__ == "__main__":
     main()

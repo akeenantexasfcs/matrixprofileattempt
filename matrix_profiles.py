@@ -60,6 +60,7 @@ def main():
         colors = ['red', 'green', 'orange']
         for i, idx in enumerate(top_matches_idx):
             match_data = data.iloc[idx:idx+len(subsequence)]
+            match_data = match_data[:len(subsequence)]  # Ensure same length
             # Align the match data with the queried range for easier comparison
             aligned_dates = pd.date_range(start=subsequence.index[0], periods=len(match_data), freq='D')
             ax.plot(aligned_dates, match_data.values, label=f'Match {i+1}', color=colors[i])
@@ -87,6 +88,7 @@ def main():
         
         for i, idx in enumerate(top_matches_idx, start=1):
             match_data = data.iloc[idx:idx+len(subsequence)]
+            match_data = match_data[:len(subsequence)]  # Ensure same length
             # Normalize the match data
             match_data_normalized = (match_data - match_data.mean()) / match_data.std()
             # Calculate Euclidean distance

@@ -93,6 +93,7 @@ def main():
 
         # Display match details
         st.subheader("Match Details")
+        st.write(f"Queried Range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
         for i, idx in enumerate(top_matches_idx, start=1):
             match_start = data.index[idx]
             match_end = data.index[idx + len(subsequence) - 1]

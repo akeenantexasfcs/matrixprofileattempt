@@ -116,42 +116,23 @@ def main():
             ax2.legend(fontsize=10, loc='upper left', bbox_to_anchor=(1, 1))
 
             # Plot 3: The next 30 days
-            ax3.set_title(f'The Next 30 Days - {ticker}', fontsize=14)
-            ax3.set_xlabel('Window Length (Days)', fontsize=12)
+            ax3.set_title(f'Cumulative Change: 30 Days Beyond Matched Motifs - {ticker}', fontsize=14)
+            ax3.set_xlabel('Days Beyond Motif', fontsize=12)
             ax3.set_ylabel('Cumulative Percent Change', fontsize=12)
 
-            # Plot queried range
-            ax3.plot(window_length, subsequence_cum_change, 
-                     label='Queried Range', color='blue', linestyle=':', linewidth=2)
-
-            # Plot vertical bar at the end of window length
-            ax3.axvline(x=len(window_length)-1, color='black', linestyle='--', label='End of Window')
-
-            # Plot matches including next 30 days
+            # Plot matches for the next 30 days
             for i, idx in enumerate(top_matches_idx):
-                match_data = data.iloc[idx:idx+len(subsequence)+30]
-                match_cum_change = calculate_cumulative_change(match_data)
-                match_start, match_end = match_details[i]
-                label = f'Match {i+1}: {match_start.strftime("%Y-%m-%d")} to {match_end.strftime("%Y-%m-%d")}'
-                
-                # Plot up to the end of window length
-                ax3.plot(window_length, match_cum_change[:len(window_length)], label=label, color=colors[i])
-                
-                # Plot the next 30 days
-                if len(match_cum_change) > len(window_length):
-                    extra_days = min(30, len(match_cum_change) - len(window_length))
-                    extended_x = np.arange(len(window_length), len(window_length) + extra_days)
-                    ax3.plot(extended_x, match_cum_change[len(window_length):len(window_length)+extra_days], 
-                             color=colors[i], linestyle='--')
-
-            # Add secondary x-axis for the days beyond the window length
-            ax3_secondary = ax3.twiny()
-            ax3_secondary.set_xlim(ax3.get_xlim())
-            ax3_secondary.set_xticks(np.arange(len(window_length), len(window_length)+30, 10))
-            ax3_secondary.set_xticklabels(['1', '10', '20', '30'])
-            ax3_secondary.set_xlabel('Days Beyond Window', fontsize=10)
+                match_end_idx = idx + len(subsequence)
+                next_30_days = data.iloc[match_end_idx:match_end_idx+30]
+                if len(next_30_days) > 0:
+                    cum_change = calculate_cumulative_change(next_30_days)
+                    match_start, match_end = match_details[i]
+                    label = f'Match {i+1}: After {match_end.strftime("%Y-%m-%d")}'
+                    ax3.plot(range(len(cum_change)), cum_change, label=label, color=colors[i])
 
             ax3.legend(fontsize=10, loc='upper left', bbox_to_anchor=(1, 1))
+            ax3.set_xlim(0, 30)
+            ax3.set_xticks(range(0, 31, 5))
 
             plt.tight_layout()
             st.pyplot(fig)
@@ -159,7 +140,7 @@ def main():
             # Add explanations for the graphs
             st.info("Graph 1: Shows the original time series for the queried range and matches.")
             st.info("Graph 2: Displays the cumulative percent change over the window length for the queried range and matches.")
-            st.info("Graph 3: Illustrates the cumulative percent change for the queried range and matches, including performance for the next 30 days (if available) beyond the queried range.")
+            st.info("Graph 3: Illustrates the cumulative percent change for the 30 days following each matched motif.")
 
         except Exception as e:
             st.error(f"An error occurred: {str(e)}")

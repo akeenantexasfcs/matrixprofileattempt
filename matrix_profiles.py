@@ -12,6 +12,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.dates import DateFormatter
 from scipy.spatial.distance import euclidean
+from matplotlib.gridspec import GridSpec
 
 def get_data(ticker, start="2005-01-01", end=None):
     data = yf.download(ticker, start=start, end=end)
@@ -77,7 +78,12 @@ def main():
                 st.write(f"Match {i} distance: {distance:.4f}")
 
             # Plotting
-            fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(12, 24))  # Increased figure height for 3 subplots
+            fig = plt.figure(figsize=(15, 20))
+            gs = GridSpec(3, 2, width_ratios=[3, 1], height_ratios=[1, 1, 1], figure=fig)
+
+            ax1 = fig.add_subplot(gs[0, 0])
+            ax2 = fig.add_subplot(gs[1, 0])
+            ax3 = fig.add_subplot(gs[2, :])
             
             # Plot 1: Original time series
             date_range = pd.date_range(start=subsequence.index[0], periods=len(subsequence), freq='D')
@@ -92,7 +98,7 @@ def main():
                 ax1.plot(date_range, match_data.values, label=label, color=colors[i])
 
             ax1.set_title(f'Queried Range and Top Matches - {ticker}', fontsize=14)
-            ax1.legend(fontsize=10, loc='upper left', bbox_to_anchor=(1, 1))
+            ax1.legend(fontsize=10, loc='center left', bbox_to_anchor=(1, 0.5))
             ax1.xaxis.set_major_formatter(DateFormatter('%Y-%m-%d'))
             plt.setp(ax1.xaxis.get_majorticklabels(), rotation=45, ha='right')
 
@@ -113,7 +119,7 @@ def main():
             ax2.set_title(f'Cumulative Percent Change - {ticker}', fontsize=14)
             ax2.set_xlabel('Window Length (Days)', fontsize=12)
             ax2.set_ylabel('Cumulative Percent Change', fontsize=12)
-            ax2.legend(fontsize=10, loc='upper left', bbox_to_anchor=(1, 1))
+            ax2.legend(fontsize=10, loc='center left', bbox_to_anchor=(1, 0.5))
 
             # Plot 3: The next 30 days
             ax3.set_title(f'Cumulative Change: 30 Days Beyond Matched Motifs - {ticker}', fontsize=14)
@@ -121,6 +127,7 @@ def main():
             ax3.set_ylabel('Cumulative Percent Change', fontsize=12)
 
             # Plot matches for the next 30 days
+            positive_returns = 0
             for i, idx in enumerate(top_matches_idx):
                 match_end_idx = idx + len(subsequence)
                 next_30_days = data.iloc[match_end_idx:match_end_idx+30]
@@ -129,8 +136,10 @@ def main():
                     match_start, match_end = match_details[i]
                     label = f'Match {i+1}: After {match_end.strftime("%Y-%m-%d")}'
                     ax3.plot(range(len(cum_change)), cum_change, label=label, color=colors[i])
+                    if cum_change.iloc[-1] > 0:
+                        positive_returns += 1
 
-            ax3.legend(fontsize=10, loc='upper left', bbox_to_anchor=(1, 1))
+            ax3.legend(fontsize=10, loc='center left', bbox_to_anchor=(1, 0.5))
             ax3.set_xlim(0, 30)
             ax3.set_xticks(range(0, 31, 5))
 
@@ -141,6 +150,18 @@ def main():
             st.info("Graph 1: Shows the original time series for the queried range and matches.")
             st.info("Graph 2: Displays the cumulative percent change over the window length for the queried range and matches.")
             st.info("Graph 3: Illustrates the cumulative percent change for the 30 days following each matched motif.")
+
+            # Add summary table
+            st.subheader("Summary of 30-Day Returns")
+            total_matches = len(top_matches_idx)
+            positive_percentage = (positive_returns / total_matches) * 100 if total_matches > 0 else 0
+            
+            summary_data = {
+                "Metric": ["Positive Returns", "Total Matches", "Percentage Positive"],
+                "Value": [f"{positive_returns}/{total_matches}", f"{total_matches}", f"{positive_percentage:.2f}%"]
+            }
+            summary_df = pd.DataFrame(summary_data)
+            st.table(summary_df)
 
         except Exception as e:
             st.error(f"An error occurred: {str(e)}")

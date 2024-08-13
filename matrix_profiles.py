@@ -57,14 +57,14 @@ def main():
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 12))
         
         # Plot 1: Original time series
-        ax1.plot(subsequence.index, subsequence, label='Queried Range', color='blue', linestyle=':', linewidth=2)
+        date_range = pd.date_range(start=subsequence.index[0], periods=len(subsequence), freq='D')
+        ax1.plot(date_range, subsequence, label='Queried Range', color='blue', linestyle=':', linewidth=2)
 
         colors = ['red', 'green', 'orange']
         for i, idx in enumerate(top_matches_idx):
             match_data = data.iloc[idx:idx+len(subsequence)]
             match_data = match_data[:len(subsequence)]  # Ensure same length
-            aligned_dates = pd.date_range(start=subsequence.index[0], periods=len(match_data), freq='D')
-            ax1.plot(aligned_dates, match_data.values, label=f'Match {i+1}', color=colors[i])
+            ax1.plot(date_range, match_data.values, label=f'Match {i+1}', color=colors[i])
 
         ax1.set_title(f'Queried Range and Top Matches - {ticker}')
         ax1.legend()
@@ -73,20 +73,22 @@ def main():
 
         # Plot 2: Cumulative change
         subsequence_cum_change = calculate_cumulative_change(subsequence)
-        ax2.plot(range(len(subsequence_cum_change)), subsequence_cum_change, 
+        ax2.plot(date_range, subsequence_cum_change, 
                  label='Queried Range', color='blue', linestyle=':', linewidth=2)
 
         for i, idx in enumerate(top_matches_idx):
             match_data = data.iloc[idx:idx+len(subsequence)]
             match_data = match_data[:len(subsequence)]  # Ensure same length
             match_cum_change = calculate_cumulative_change(match_data)
-            ax2.plot(range(len(match_cum_change)), match_cum_change, 
+            ax2.plot(date_range, match_cum_change, 
                      label=f'Match {i+1}', color=colors[i])
 
         ax2.set_title(f'Cumulative Percent Change - {ticker}')
-        ax2.set_xlabel('Time (Days)')
+        ax2.set_xlabel('Date')
         ax2.set_ylabel('Cumulative Percent Change')
         ax2.legend()
+        ax2.xaxis.set_major_formatter(DateFormatter('%Y-%m-%d'))
+        plt.setp(ax2.xaxis.get_majorticklabels(), rotation=45, ha='right')
 
         plt.tight_layout()
         st.pyplot(fig)

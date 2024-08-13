@@ -53,52 +53,14 @@ def main():
         # Find the top 3 closest matches
         top_matches_idx = np.argsort(mp[:, 0])[:3]
 
-        # Plotting
-        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 12))
-        
-        # Plot 1: Original time series
-        date_range = pd.date_range(start=subsequence.index[0], periods=len(subsequence), freq='D')
-        ax1.plot(date_range, subsequence, label='Queried Range', color='blue', linestyle=':', linewidth=2)
-
-        colors = ['red', 'green', 'orange']
-        for i, idx in enumerate(top_matches_idx):
-            match_data = data.iloc[idx:idx+len(subsequence)]
-            match_data = match_data[:len(subsequence)]  # Ensure same length
-            ax1.plot(date_range, match_data.values, label=f'Match {i+1}', color=colors[i])
-
-        ax1.set_title(f'Queried Range and Top Matches - {ticker}')
-        ax1.legend()
-        ax1.xaxis.set_major_formatter(DateFormatter('%Y-%m-%d'))
-        plt.setp(ax1.xaxis.get_majorticklabels(), rotation=45, ha='right')
-
-        # Plot 2: Cumulative change
-        subsequence_cum_change = calculate_cumulative_change(subsequence)
-        ax2.plot(date_range, subsequence_cum_change, 
-                 label='Queried Range', color='blue', linestyle=':', linewidth=2)
-
-        for i, idx in enumerate(top_matches_idx):
-            match_data = data.iloc[idx:idx+len(subsequence)]
-            match_data = match_data[:len(subsequence)]  # Ensure same length
-            match_cum_change = calculate_cumulative_change(match_data)
-            ax2.plot(date_range, match_cum_change, 
-                     label=f'Match {i+1}', color=colors[i])
-
-        ax2.set_title(f'Cumulative Percent Change - {ticker}')
-        ax2.set_xlabel('Date')
-        ax2.set_ylabel('Cumulative Percent Change')
-        ax2.legend()
-        ax2.xaxis.set_major_formatter(DateFormatter('%Y-%m-%d'))
-        plt.setp(ax2.xaxis.get_majorticklabels(), rotation=45, ha='right')
-
-        plt.tight_layout()
-        st.pyplot(fig)
-
-        # Display match details
+        # Display match details first
         st.subheader("Match Details")
         st.write(f"Queried Range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
+        match_details = []
         for i, idx in enumerate(top_matches_idx, start=1):
             match_start = data.index[idx]
             match_end = data.index[idx + len(subsequence) - 1]
+            match_details.append((match_start, match_end))
             st.write(f"Match {i}: {match_start.strftime('%Y-%m-%d')} to {match_end.strftime('%Y-%m-%d')}")
 
         # Calculate and display Euclidean distances
@@ -112,6 +74,52 @@ def main():
             match_data_normalized = (match_data - match_data.mean()) / match_data.std()
             distance = euclidean(subsequence_normalized, match_data_normalized)
             st.write(f"Match {i} distance: {distance:.4f}")
+
+        # Add notification about x-axis
+        st.info("On the first graph, the x-axis represents the date range for the queried data only.")
+
+        # Plotting
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 12))
+        
+        # Plot 1: Original time series
+        date_range = pd.date_range(start=subsequence.index[0], periods=len(subsequence), freq='D')
+        ax1.plot(date_range, subsequence, label='Queried Range', color='blue', linestyle=':', linewidth=2)
+
+        colors = ['red', 'green', 'orange']
+        for i, idx in enumerate(top_matches_idx):
+            match_data = data.iloc[idx:idx+len(subsequence)]
+            match_data = match_data[:len(subsequence)]  # Ensure same length
+            match_start, match_end = match_details[i]
+            label = f'Match {i+1}: {match_start.strftime("%Y-%m-%d")} to {match_end.strftime("%Y-%m-%d")}'
+            ax1.plot(date_range, match_data.values, label=label, color=colors[i])
+
+        ax1.set_title(f'Queried Range and Top Matches - {ticker}')
+        ax1.legend(fontsize='x-small')
+        ax1.xaxis.set_major_formatter(DateFormatter('%Y-%m-%d'))
+        plt.setp(ax1.xaxis.get_majorticklabels(), rotation=45, ha='right')
+
+        # Plot 2: Cumulative change
+        subsequence_cum_change = calculate_cumulative_change(subsequence)
+        ax2.plot(date_range, subsequence_cum_change, 
+                 label='Queried Range', color='blue', linestyle=':', linewidth=2)
+
+        for i, idx in enumerate(top_matches_idx):
+            match_data = data.iloc[idx:idx+len(subsequence)]
+            match_data = match_data[:len(subsequence)]  # Ensure same length
+            match_cum_change = calculate_cumulative_change(match_data)
+            match_start, match_end = match_details[i]
+            label = f'Match {i+1}: {match_start.strftime("%Y-%m-%d")} to {match_end.strftime("%Y-%m-%d")}'
+            ax2.plot(date_range, match_cum_change, label=label, color=colors[i])
+
+        ax2.set_title(f'Cumulative Percent Change - {ticker}')
+        ax2.set_xlabel('Date')
+        ax2.set_ylabel('Cumulative Percent Change')
+        ax2.legend(fontsize='x-small')
+        ax2.xaxis.set_major_formatter(DateFormatter('%Y-%m-%d'))
+        plt.setp(ax2.xaxis.get_majorticklabels(), rotation=45, ha='right')
+
+        plt.tight_layout()
+        st.pyplot(fig)
 
 if __name__ == "__main__":
     main()

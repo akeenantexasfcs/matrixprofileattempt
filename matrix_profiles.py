@@ -76,10 +76,10 @@ def main():
             st.write(f"Match {i} distance: {distance:.4f}")
 
         # Add notification about x-axis
-        st.info("On the first graph, the x-axis represents the date range for the queried data only.")
+        st.info("On the first graph, the x-axis represents the date range for the queried data only. On the second graph, the x-axis shows the window length in days.")
 
         # Plotting
-        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 12))
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 16))  # Increased figure height
         
         # Plot 1: Original time series
         date_range = pd.date_range(start=subsequence.index[0], periods=len(subsequence), freq='D')
@@ -93,14 +93,15 @@ def main():
             label = f'Match {i+1}: {match_start.strftime("%Y-%m-%d")} to {match_end.strftime("%Y-%m-%d")}'
             ax1.plot(date_range, match_data.values, label=label, color=colors[i])
 
-        ax1.set_title(f'Queried Range and Top Matches - {ticker}')
-        ax1.legend(fontsize='x-small')
+        ax1.set_title(f'Queried Range and Top Matches - {ticker}', fontsize=14)
+        ax1.legend(fontsize=10, loc='upper left', bbox_to_anchor=(1, 1))
         ax1.xaxis.set_major_formatter(DateFormatter('%Y-%m-%d'))
         plt.setp(ax1.xaxis.get_majorticklabels(), rotation=45, ha='right')
 
         # Plot 2: Cumulative change
+        window_length = np.arange(len(subsequence))
         subsequence_cum_change = calculate_cumulative_change(subsequence)
-        ax2.plot(date_range, subsequence_cum_change, 
+        ax2.plot(window_length, subsequence_cum_change, 
                  label='Queried Range', color='blue', linestyle=':', linewidth=2)
 
         for i, idx in enumerate(top_matches_idx):
@@ -109,14 +110,12 @@ def main():
             match_cum_change = calculate_cumulative_change(match_data)
             match_start, match_end = match_details[i]
             label = f'Match {i+1}: {match_start.strftime("%Y-%m-%d")} to {match_end.strftime("%Y-%m-%d")}'
-            ax2.plot(date_range, match_cum_change, label=label, color=colors[i])
+            ax2.plot(window_length, match_cum_change, label=label, color=colors[i])
 
-        ax2.set_title(f'Cumulative Percent Change - {ticker}')
-        ax2.set_xlabel('Date')
-        ax2.set_ylabel('Cumulative Percent Change')
-        ax2.legend(fontsize='x-small')
-        ax2.xaxis.set_major_formatter(DateFormatter('%Y-%m-%d'))
-        plt.setp(ax2.xaxis.get_majorticklabels(), rotation=45, ha='right')
+        ax2.set_title(f'Cumulative Percent Change - {ticker}', fontsize=14)
+        ax2.set_xlabel('Window Length (Days)', fontsize=12)
+        ax2.set_ylabel('Cumulative Percent Change', fontsize=12)
+        ax2.legend(fontsize=10, loc='upper left', bbox_to_anchor=(1, 1))
 
         plt.tight_layout()
         st.pyplot(fig)

@@ -33,8 +33,8 @@ def main():
         end_date = st.date_input("End date for analysis", pd.to_datetime("2023-12-31"))
 
     if st.button("Analyze"):
-        # Fetch data from 2005 to the end date
-        data = get_data(ticker, start="2005-01-01", end=end_date)
+        # Fetch data from 2005 to the end date plus 30 days
+        data = get_data(ticker, start="2005-01-01", end=end_date + pd.Timedelta(days=30))
 
         # Convert start_date and end_date to pandas Timestamp
         start_date = pd.Timestamp(start_date)
@@ -75,11 +75,8 @@ def main():
             distance = euclidean(subsequence_normalized, match_data_normalized)
             st.write(f"Match {i} distance: {distance:.4f}")
 
-        # Add notification about x-axis
-        st.info("On the first graph, the x-axis represents the date range for the queried data only. On the second graph, the x-axis shows the window length in days.")
-
         # Plotting
-        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 16))  # Increased figure height
+        fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(12, 24))  # Increased figure height for 3 subplots
         
         # Plot 1: Original time series
         date_range = pd.date_range(start=subsequence.index[0], periods=len(subsequence), freq='D')
@@ -117,8 +114,50 @@ def main():
         ax2.set_ylabel('Cumulative Percent Change', fontsize=12)
         ax2.legend(fontsize=10, loc='upper left', bbox_to_anchor=(1, 1))
 
+        # Plot 3: The next 30 days
+        ax3.set_title(f'The Next 30 Days - {ticker}', fontsize=14)
+        ax3.set_xlabel('Window Length (Days)', fontsize=12)
+        ax3.set_ylabel('Cumulative Percent Change', fontsize=12)
+
+        # Plot queried range
+        ax3.plot(window_length, subsequence_cum_change, 
+                 label='Queried Range', color='blue', linestyle=':', linewidth=2)
+
+        # Plot vertical bar at the end of window length
+        ax3.axvline(x=len(window_length)-1, color='black', linestyle='--', label='End of Window')
+
+        # Plot matches including next 30 days
+        for i, idx in enumerate(top_matches_idx):
+            match_data = data.iloc[idx:idx+len(subsequence)+30]
+            match_cum_change = calculate_cumulative_change(match_data)
+            match_start, match_end = match_details[i]
+            label = f'Match {i+1}: {match_start.strftime("%Y-%m-%d")} to {match_end.strftime("%Y-%m-%d")}'
+            
+            # Plot up to the end of window length
+            ax3.plot(window_length, match_cum_change[:len(window_length)], label=label, color=colors[i])
+            
+            # Plot the next 30 days
+            if len(match_cum_change) > len(window_length):
+                extra_days = len(match_cum_change) - len(window_length)
+                ax3.plot(np.arange(len(window_length)-1, len(window_length)-1+extra_days), 
+                         match_cum_change[len(window_length)-1:], color=colors[i], linestyle='--')
+
+        # Add secondary x-axis for the days beyond the window length
+        ax3_secondary = ax3.twiny()
+        ax3_secondary.set_xlim(ax3.get_xlim())
+        ax3_secondary.set_xticks(np.arange(len(window_length), len(window_length)+30, 10))
+        ax3_secondary.set_xticklabels(['1', '10', '20', '30'])
+        ax3_secondary.set_xlabel('Days Beyond Window', fontsize=10)
+
+        ax3.legend(fontsize=10, loc='upper left', bbox_to_anchor=(1, 1))
+
         plt.tight_layout()
         st.pyplot(fig)
+
+        # Add explanations for the graphs
+        st.info("Graph 1: Shows the original time series for the queried range and matches.")
+        st.info("Graph 2: Displays the cumulative percent change over the window length for the queried range and matches.")
+        st.info("Graph 3: Illustrates the cumulative percent change for the queried range and matches, including performance for the next 30 days (if available) beyond the queried range.")
 
 if __name__ == "__main__":
     main()

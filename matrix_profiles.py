@@ -259,7 +259,7 @@ def main():
             treasury_data, treasury_preceding_date = get_fred_data_with_preceding(FRED_API_KEY, "DGS30", start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
             display_fred_data_with_preceding("30-Year Treasury Rate", treasury_data, treasury_preceding_date, start_date, end_date)
 
-# Core CPI (CPILFESL)
+            # Core CPI (CPILFESL)
             cpi_data, cpi_preceding_date = get_fred_data_with_preceding(FRED_API_KEY, "CPILFESL", start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
             display_fred_data_with_preceding("Core CPI", cpi_data, cpi_preceding_date, start_date, end_date)
 
@@ -293,6 +293,33 @@ def main():
                     st.write("Core CPI: Data not available")
                 
                 st.write("---")  # Add a separator between matches
+
+            # Display original range statistics
+            st.subheader("Original Range Statistics")
+            
+            # Unemployment Rate for original range
+            original_unrate_data, _ = get_fred_data_with_preceding(FRED_API_KEY, "UNRATE", start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
+            if original_unrate_data:
+                avg_unrate, _ = calculate_average_and_fill_missing(original_unrate_data, start_date, end_date)
+                st.write(f"Unemployment Rate (Original Range Average): {avg_unrate:.2f}")
+            else:
+                st.write("Unemployment Rate: Data not available")
+
+            # 30-Year Treasury for original range
+            original_treasury_data, _ = get_fred_data_with_preceding(FRED_API_KEY, "DGS30", start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
+            if original_treasury_data:
+                avg_treasury, _ = calculate_average_and_fill_missing(original_treasury_data, start_date, end_date)
+                st.write(f"30-Year Treasury Rate (Original Range Average): {avg_treasury:.2f}")
+            else:
+                st.write("30-Year Treasury Rate: Data not available")
+
+            # Core CPI for original range
+            original_cpi_data, _ = get_fred_data_with_preceding(FRED_API_KEY, "CPILFESL", start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
+            if original_cpi_data:
+                avg_cpi, _ = calculate_average_and_fill_missing(original_cpi_data, start_date, end_date)
+                st.write(f"Core CPI (Original Range Average): {avg_cpi:.2f}")
+            else:
+                st.write("Core CPI: Data not available")
 
         except Exception as e:
             st.error(f"An error occurred: {str(e)}")

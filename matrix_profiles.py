@@ -175,7 +175,7 @@ def main():
 
             ax1.set_title(f'Queried Range and Top Matches - {ticker}', fontsize=14)
             ax1.legend(fontsize=10, loc='center left', bbox_to_anchor=(1, 0.5))
-            ax1.xaxis.set_major_formatter(DateFormatter('%Y-%m-%d'))
+            ax1.xaxis.set_major_formatter(DateFormatter('%b-%Y'))
             plt.setp(ax1.xaxis.get_majorticklabels(), rotation=45, ha='right')
 
             # Plot 2: Cumulative change
@@ -254,6 +254,37 @@ def main():
             # Core CPI (CPILFESL)
             cpi_data, cpi_preceding_date = get_fred_data_with_preceding(FRED_API_KEY, "CPILFESL", start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
             display_fred_data_with_preceding("Core CPI", cpi_data, cpi_preceding_date, start_date, end_date)
+
+# Display average statistics for matched ranges
+            st.subheader("Average Statistics for Matched Ranges")
+            for i, (match_start, match_end) in enumerate(match_details, start=1):
+                st.write(f"**Match {i}: {match_start.strftime('%Y-%m-%d')} to {match_end.strftime('%Y-%m-%d')}**")
+                
+                # Unemployment Rate for matched range
+                match_unrate_data, _ = get_fred_data_with_preceding(FRED_API_KEY, "UNRATE", match_start.strftime('%Y-%m-%d'), match_end.strftime('%Y-%m-%d'))
+                if match_unrate_data:
+                    avg_unrate, _ = calculate_average_and_fill_missing(match_unrate_data, match_start, match_end)
+                    st.write(f"Unemployment Rate (Average): {avg_unrate:.2f}")
+                else:
+                    st.write("Unemployment Rate: Data not available")
+
+                # 30-Year Treasury for matched range
+                match_treasury_data, _ = get_fred_data_with_preceding(FRED_API_KEY, "DGS30", match_start.strftime('%Y-%m-%d'), match_end.strftime('%Y-%m-%d'))
+                if match_treasury_data:
+                    avg_treasury, _ = calculate_average_and_fill_missing(match_treasury_data, match_start, match_end)
+                    st.write(f"30-Year Treasury Rate (Average): {avg_treasury:.2f}")
+                else:
+                    st.write("30-Year Treasury Rate: Data not available")
+
+                # Core CPI for matched range
+                match_cpi_data, _ = get_fred_data_with_preceding(FRED_API_KEY, "CPILFESL", match_start.strftime('%Y-%m-%d'), match_end.strftime('%Y-%m-%d'))
+                if match_cpi_data:
+                    avg_cpi, _ = calculate_average_and_fill_missing(match_cpi_data, match_start, match_end)
+                    st.write(f"Core CPI (Average): {avg_cpi:.2f}")
+                else:
+                    st.write("Core CPI: Data not available")
+                
+                st.write("---")  # Add a separator between matches
 
         except Exception as e:
             st.error(f"An error occurred: {str(e)}")

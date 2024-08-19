@@ -29,20 +29,22 @@ def get_fred_data_with_preceding(api_key, series_id, start_date, end_date):
     # Try to get data within the specified range
     data = get_fred_data(api_key, series_id, start_date, end_date)
     
-    if not data:
-        # If no data in the range, fetch the earliest data point before the start date
-        preceding_url = f"https://api.stlouisfed.org/fred/series/observations?series_id={series_id}&api_key={api_key}&file_type=json&observation_end={start_date}&sort_order=desc&limit=1"
-        response = requests.get(preceding_url)
-        
-        if response.status_code == 200:
-            data = response.json()
-            if 'observations' in data and len(data['observations']) > 0:
-                obs = data['observations'][0]
-                preceding_date = datetime.strptime(obs['date'], '%Y-%m-%d')
-                preceding_value = float(obs['value'])
-                return [(preceding_date, preceding_value)], preceding_date
+    if data and len(data) > 0:
+        return data[0], None  # Return the first (earliest) data point within range
+
+    # If no data in the range, fetch the earliest data point before the start date
+    preceding_url = f"https://api.stlouisfed.org/fred/series/observations?series_id={series_id}&api_key={api_key}&file_type=json&observation_end={start_date}&sort_order=desc&limit=1"
+    response = requests.get(preceding_url)
     
-    return data, None
+    if response.status_code == 200:
+        data = response.json()
+        if 'observations' in data and len(data['observations']) > 0:
+            obs = data['observations'][0]
+            preceding_date = datetime.strptime(obs['date'], '%Y-%m-%d')
+            preceding_value = float(obs['value'])
+            return (preceding_date, preceding_value), preceding_date
+    
+    return None, None
 
 def get_fred_data(api_key, series_id, start_date, end_date):
     url = f"https://api.stlouisfed.org/fred/series/observations?series_id={series_id}&api_key={api_key}&file_type=json&observation_start={start_date}&observation_end={end_date}"
@@ -57,7 +59,9 @@ def get_fred_data(api_key, series_id, start_date, end_date):
 
 def main():
     st.title("Stock Matrix Profile Analysis - Motif Juxtaposition")
+    print("Debug: Main function started")
     ticker = st.text_input("Enter stock ticker (e.g., QQQ):", "QQQ")
+    print(f"Debug: Ticker selected: {ticker}")
     
     # Date range selection
     col1, col2 = st.columns(2)
@@ -88,7 +92,7 @@ def main():
             # Find the top 3 closest matches
             top_matches_idx = np.argsort(mp[:, 0])[:3]
 
-            # Display match details
+            # Display match details first
             st.subheader("Match Details")
             st.write(f"Queried Range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
             match_details = []
@@ -110,19 +114,13 @@ def main():
                 distance = euclidean(subsequence_normalized, match_data_normalized)
                 st.write(f"Match {i} distance: {distance:.4f}")
 
-            # Fetch FRED data
-            federal_debt_data, debt_preceding_date = get_fred_data_with_preceding(FRED_API_KEY, "GFDEBTN", start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
-            unrate_data, unrate_preceding_date = get_fred_data_with_preceding(FRED_API_KEY, "UNRATE", start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
-
             # Plotting
             fig = plt.figure(figsize=(15, 20))
-            gs = GridSpec(4, 2, width_ratios=[3, 1], height_ratios=[1, 1, 1, 1], figure=fig)
+            gs = GridSpec(3, 2, width_ratios=[3, 1], height_ratios=[1, 1, 1], figure=fig)
 
             ax1 = fig.add_subplot(gs[0, 0])
             ax2 = fig.add_subplot(gs[1, 0])
             ax3 = fig.add_subplot(gs[2, :])
-            ax4 = fig.add_subplot(gs[3, 0])
-            ax5 = fig.add_subplot(gs[3, 1])
             
             # Plot 1: Original time series
             date_range = pd.date_range(start=subsequence.index[0], periods=len(subsequence), freq='D')
@@ -182,46 +180,13 @@ def main():
             ax3.set_xlim(0, 30)
             ax3.set_xticks(range(0, 31, 5))
 
-            # Plot 4: National Debt
-            if federal_debt_data:
-                debt_df = pd.DataFrame(federal_debt_data, columns=['date', 'value']).set_index('date')
-                ax4.plot(debt_df.index, debt_df['value'], label='National Debt')
-                ax4.set_title('National Debt', fontsize=14)
-                ax4.set_xlabel('Date', fontsize=12)
-                ax4.set_ylabel('Debt ($ million)', fontsize=12)
-                ax4.legend(fontsize=10)
-                ax4.xaxis.set_major_formatter(DateFormatter('%Y-%m-%d'))
-                plt.setp(ax4.xaxis.get_majorticklabels(), rotation=45, ha='right')
-
-            # Plot 5: Unemployment Rate
-            if unrate_data:
-                unrate_df = pd.DataFrame(unrate_data, columns=['date', 'value']).set_index('date')
-                ax5.plot(unrate_df.index, unrate_df['value'], label='Unemployment Rate')
-                ax5.set_title('Unemployment Rate', fontsize=14)
-                ax5.set_xlabel('Date', fontsize=12)
-                ax5.set_ylabel('Rate (%)', fontsize=12)
-                ax5.legend(fontsize=10)
-                ax5.xaxis.set_major_formatter(DateFormatter('%Y-%m-%d'))
-                plt.setp(ax5.xaxis.get_majorticklabels(), rotation=45, ha='right')
-
             plt.tight_layout()
             st.pyplot(fig)
 
-            # Display FRED data details
-            st.subheader("Contextual Statistics")
-            st.write(f"For the date range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
-
-            if federal_debt_data:
-                earliest_debt = federal_debt_data[0]
-                st.write(f"**National Debt:** ${earliest_debt[1]:,.2f} million (Earliest data from {earliest_debt[0].strftime('%Y-%m-%d')})")
-            else:
-                st.error("Failed to retrieve federal debt data.")
-
-            if unrate_data:
-                earliest_unrate = unrate_data[0]
-                st.write(f"**Unemployment Rate:** {earliest_unrate[1]:.2f}% (Earliest data from {earliest_unrate[0].strftime('%Y-%m-%d')})")
-            else:
-                st.error("Failed to retrieve unemployment rate data.")
+            # Add explanations for the graphs
+            st.info("Graph 1: Shows the original time series for the queried range and matches.")
+            st.info("Graph 2: Displays the cumulative percent change over the window length for the queried range and matches.")
+            st.info("Graph 3: Illustrates the cumulative percent change for the 30 days following each matched motif.")
 
             # Add summary table
             st.subheader("Summary of 30-Day Returns Beyond Matched Patterns")
@@ -234,6 +199,32 @@ def main():
             }
             summary_df = pd.DataFrame(summary_data)
             st.table(summary_df)
+
+            # Fetch FRED data for National Debt and Unemployment Rate
+            st.subheader("Contextual Statistics")
+            st.write(f"For the date range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
+
+            # National Debt (GFDEBTN)
+            federal_debt_data, debt_preceding_date = get_fred_data_with_preceding(FRED_API_KEY, "GFDEBTN", start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
+            if federal_debt_data:
+                debt_date, debt_value = federal_debt_data
+                if debt_preceding_date:
+                    st.write(f"**National Debt:** ${debt_value:,.2f} million (Earliest data from {debt_preceding_date.strftime('%Y-%m-%d')})")
+                else:
+                    st.write(f"**National Debt:** ${debt_value:,.2f} million (Data from {debt_date.strftime('%Y-%m-%d')})")
+            else:
+                st.error("Failed to retrieve federal debt data.")
+
+            # Unemployment Rate (UNRATE)
+            unrate_data, unrate_preceding_date = get_fred_data_with_preceding(FRED_API_KEY, "UNRATE", start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
+            if unrate_data:
+                unrate_date, unrate_value = unrate_data
+                if unrate_preceding_date:
+                    st.write(f"**Unemployment Rate:** {unrate_value:.2f}% (Earliest data from {unrate_preceding_date.strftime('%Y-%m-%d')})")
+                else:
+                    st.write(f"**Unemployment Rate:** {unrate_value:.2f}% (Data from {unrate_date.strftime('%Y-%m-%d')})")
+            else:
+                st.error("Failed to retrieve unemployment rate data.")
 
         except Exception as e:
             st.error(f"An error occurred: {str(e)}")

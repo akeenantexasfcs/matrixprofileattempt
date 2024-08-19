@@ -13,6 +13,11 @@ import matplotlib.pyplot as plt
 from matplotlib.dates import DateFormatter
 from scipy.spatial.distance import euclidean
 from matplotlib.gridspec import GridSpec
+import requests
+from datetime import datetime, timedelta
+
+# Get FRED API Key from secrets
+FRED_API_KEY = st.secrets["FRED_API_KEY"]
 
 def get_data(ticker, start="2005-01-01", end=None):
     data = yf.download(ticker, start=start, end=end)
@@ -20,6 +25,27 @@ def get_data(ticker, start="2005-01-01", end=None):
 
 def calculate_cumulative_change(series):
     return (series / series.iloc[0] - 1) * 100
+
+def get_fred_data(api_key, series_id, start_date, end_date):
+    url = f"https://api.stlouisfed.org/fred/series/observations?series_id={series_id}&api_key={api_key}&file_type=json&observation_start={start_date}&observation_end={end_date}"
+    response = requests.get(url)
+
+    if response.status_code == 200:
+        data = response.json()
+        if 'observations' in data:
+            return [(datetime.strptime(obs['date'], '%Y-%m-%d'), float(obs['value']))
+                    for obs in data['observations'] if obs['value'] != '.']
+    return None
+
+def calculate_average_and_fill_missing(data, start_date, end_date):
+    dates, values = zip(*data)
+    series = pd.Series(values, index=pd.to_datetime(dates))
+    
+    # Ensure the series covers the full range
+    full_range = pd.date_range(start=start_date, end=end_date)
+    series = series.reindex(full_range, method='pad')  # forward fill for missing values
+    
+    return series.mean(), series
 
 def main():
     st.title("Stock Matrix Profile Analysis - Motif Juxtaposition")
@@ -35,7 +61,7 @@ def main():
 
     if st.button("Analyze"):
         try:
-            # Fetch data from 2005 to the end date plus 30 days
+            # Fetch stock data from 2005 to the end date plus 30 days
             data = get_data(ticker, start="2005-01-01", end=end_date + pd.Timedelta(days=30))
 
             # Convert start_date and end_date to pandas Timestamp
@@ -152,7 +178,7 @@ def main():
             st.info("Graph 3: Illustrates the cumulative percent change for the 30 days following each matched motif.")
 
             # Add summary table
-            st.subheader("Summary of 30-Day Returns")
+            st.subheader("Summary of 30-Day Returns Beyond Matched Patterns")
             total_matches = len(top_matches_idx)
             positive_percentage = (positive_returns / total_matches) * 100 if total_matches > 0 else 0
             
@@ -162,6 +188,28 @@ def main():
             }
             summary_df = pd.DataFrame(summary_data)
             st.table(summary_df)
+
+            # Fetch FRED data for National Debt and Unemployment Rate
+            st.subheader("Contextual Statistics")
+            st.write(f"For the date range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
+
+            # National Debt (GFDEBTN)
+            federal_debt_data = get_fred_data(FRED_API_KEY, "GFDEBTN", start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
+            if federal_debt_data:
+                avg_federal_debt, filled_federal_debt = calculate_average_and_fill_missing(federal_debt_data, start_date, end_date)
+                st.write(f"**National Debt (Average):** ${avg_federal_debt:,.2f} million")
+                st.line_chart(filled_federal_debt)
+            else:
+                st.error("Failed to retrieve federal debt data.")
+
+            # Unemployment Rate (UNRATE)
+            unrate_data = get_fred_data(FRED_API_KEY, "UNRATE", start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
+            if unrate_data:
+                avg_unrate, filled_unrate = calculate_average_and_fill_missing(unrate_data, start_date, end_date)
+                st.write(f"**Unemployment Rate (Average):** {avg_unrate:.2f}%")
+                st.line_chart(filled_unrate)
+            else:
+                st.error("Failed to retrieve unemployment rate data.")
 
         except Exception as e:
             st.error(f"An error occurred: {str(e)}")

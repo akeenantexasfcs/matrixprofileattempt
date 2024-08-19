@@ -233,8 +233,16 @@ def main():
             positive_percentage = (positive_returns / total_matches) * 100 if total_matches > 0 else 0
             
             summary_data = {
-                "Metric": ["Positive Returns", "Total Matches", "Percentage Positive"],
-                "Value": [f"{positive_returns}/{total_matches}", f"{total_matches}", f"{positive_percentage:.2f}%"]
+                "Metric": ["Positive Returns", "Total Matches", "Percentage Positive", "Queried Range", "Match 1", "Match 2", "Match 3"],
+                "Value": [
+                    f"{positive_returns}/{total_matches}",
+                    f"{total_matches}",
+                    f"{positive_percentage:.2f}%",
+                    f"{start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}",
+                    f"{match_details[0][0].strftime('%Y-%m-%d')} to {match_details[0][1].strftime('%Y-%m-%d')}",
+                    f"{match_details[1][0].strftime('%Y-%m-%d')} to {match_details[1][1].strftime('%Y-%m-%d')}",
+                    f"{match_details[2][0].strftime('%Y-%m-%d')} to {match_details[2][1].strftime('%Y-%m-%d')}"
+                ]
             }
             summary_df = pd.DataFrame(summary_data)
             st.table(summary_df)
@@ -251,11 +259,11 @@ def main():
             treasury_data, treasury_preceding_date = get_fred_data_with_preceding(FRED_API_KEY, "DGS30", start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
             display_fred_data_with_preceding("30-Year Treasury Rate", treasury_data, treasury_preceding_date, start_date, end_date)
 
-            # Core CPI (CPILFESL)
+# Core CPI (CPILFESL)
             cpi_data, cpi_preceding_date = get_fred_data_with_preceding(FRED_API_KEY, "CPILFESL", start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
             display_fred_data_with_preceding("Core CPI", cpi_data, cpi_preceding_date, start_date, end_date)
 
-# Display average statistics for matched ranges
+            # Display average statistics for matched ranges
             st.subheader("Average Statistics for Matched Ranges")
             for i, (match_start, match_end) in enumerate(match_details, start=1):
                 st.write(f"**Match {i}: {match_start.strftime('%Y-%m-%d')} to {match_end.strftime('%Y-%m-%d')}**")

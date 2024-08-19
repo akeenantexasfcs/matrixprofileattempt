@@ -50,7 +50,7 @@ def get_fred_data(api_key, series_id, start_date, end_date):
     url = f"https://api.stlouisfed.org/fred/series/observations?series_id={series_id}&api_key={api_key}&file_type=json&observation_start={start_date}&observation_end={end_date}"
     response = requests.get(url)
     
-    if response.status_code == 200:
+    if response.status_code == 200):
         data = response.json()
         if 'observations' in data:
             return [(datetime.strptime(obs['date'], '%Y-%m-%d'), float(obs['value'])) for obs in data['observations'] if obs['value'] != '.']
@@ -62,6 +62,18 @@ def calculate_average_and_fill_missing(data, start_date, end_date):
     df = df.reindex(pd.date_range(start=start_date, end=end_date, freq='D'))
     df['value'] = df['value'].ffill()
     return df['value'].mean(), df
+
+def display_fred_data_with_preceding(series_name, fred_data, preceding_date, start_date, end_date):
+    if fred_data:
+        avg_value, filled_df = calculate_average_and_fill_missing(fred_data, start_date, end_date)
+        if np.isnan(avg_value):
+            earliest_value = filled_df.iloc[-1]
+            st.write(f"**{series_name}:** {earliest_value:.2f} (Earliest data from {preceding_date.strftime('%Y-%m-%d')})")
+        else:
+            st.write(f"**{series_name} (Average):** {avg_value:.2f}")
+        st.line_chart(filled_df)
+    else:
+        st.error(f"Failed to retrieve {series_name} data.")
 
 def main():
     st.title("Stock Matrix Profile Analysis - Motif Juxtaposition")
@@ -210,39 +222,15 @@ def main():
 
             # Unemployment Rate (UNRATE)
             unrate_data, unrate_preceding_date = get_fred_data_with_preceding(FRED_API_KEY, "UNRATE", start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
-            if unrate_data:
-                avg_unrate, filled_unrate = calculate_average_and_fill_missing(unrate_data, start_date, end_date)
-                if np.isnan(avg_unrate):
-                    st.write(f"**Unemployment Rate:** {filled_unrate.iloc[-1]:.2f}% (Earliest data from {unrate_preceding_date.strftime('%Y-%m-%d')})")
-                else:
-                    st.write(f"**Unemployment Rate (Average):** {avg_unrate:.2f}%")
-                st.line_chart(filled_unrate)
-            else:
-                st.error("Failed to retrieve unemployment rate data.")
+            display_fred_data_with_preceding("Unemployment Rate", unrate_data, unrate_preceding_date, start_date, end_date)
 
             # 30-Year Treasury (DGS30)
             treasury_data, treasury_preceding_date = get_fred_data_with_preceding(FRED_API_KEY, "DGS30", start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
-            if treasury_data:
-                avg_treasury, filled_treasury = calculate_average_and_fill_missing(treasury_data, start_date, end_date)
-                if np.isnan(avg_treasury):
-                    st.write(f"**30-Year Treasury Rate:** {filled_treasury.iloc[-1]:.2f}% (Earliest data from {treasury_preceding_date.strftime('%Y-%m-%d')})")
-                else:
-                    st.write(f"**30-Year Treasury Rate (Average):** {avg_treasury:.2f}%")
-                st.line_chart(filled_treasury)
-            else:
-                st.error("Failed to retrieve 30-Year Treasury data.")
+            display_fred_data_with_preceding("30-Year Treasury Rate", treasury_data, treasury_preceding_date, start_date, end_date)
 
             # Core CPI (CPILFESL)
             cpi_data, cpi_preceding_date = get_fred_data_with_preceding(FRED_API_KEY, "CPILFESL", start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
-            if cpi_data:
-                avg_cpi, filled_cpi = calculate_average_and_fill_missing(cpi_data, start_date, end_date)
-                if np.isnan(avg_cpi):
-                    st.write(f"**Core CPI:** {filled_cpi.iloc[-1]:.2f} (Earliest data from {cpi_preceding_date.strftime('%Y-%m-%d')})")
-                else:
-                    st.write(f"**Core CPI (Average):** {avg_cpi:.2f}")
-                st.line_chart(filled_cpi)
-            else:
-                st.error("Failed to retrieve Core CPI data.")
+            display_fred_data_with_preceding("Core CPI", cpi_data, cpi_preceding_date, start_date, end_date)
 
         except Exception as e:
             st.error(f"An error occurred: {str(e)}")

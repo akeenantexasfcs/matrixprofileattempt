@@ -36,7 +36,7 @@ def get_fred_data_with_preceding(api_key, series_id, start_date, end_date):
     preceding_url = f"https://api.stlouisfed.org/fred/series/observations?series_id={series_id}&api_key={api_key}&file_type=json&observation_end={start_date}&sort_order=desc&limit=1"
     response = requests.get(preceding_url)
     
-    if response.status_code == 200:
+    if response.status_code == 200:  # Corrected line
         data = response.json()
         if 'observations' in data and len(data['observations']) > 0:
             obs = data['observations'][0]
@@ -50,7 +50,7 @@ def get_fred_data(api_key, series_id, start_date, end_date):
     url = f"https://api.stlouisfed.org/fred/series/observations?series_id={series_id}&api_key={api_key}&file_type=json&observation_start={start_date}&observation_end={end_date}"
     response = requests.get(url)
     
-    if response.status_code == 200):
+    if response.status_code == 200:
         data = response.json()
         if 'observations' in data:
             return [(datetime.strptime(obs['date'], '%Y-%m-%d'), float(obs['value'])) for obs in data['observations'] if obs['value'] != '.']

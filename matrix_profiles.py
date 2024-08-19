@@ -4,48 +4,26 @@
 # In[ ]:
 
 
-import streamlit as st
-import yfinance as yf
-import stumpy
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-from matplotlib.dates import DateFormatter
-from scipy.spatial.distance import euclidean
-from matplotlib.gridspec import GridSpec
-import requests
-from datetime import datetime, timedelta
-
-# Get FRED API Key from secrets
-FRED_API_KEY = st.secrets["FRED_API_KEY"]
-
-def get_data(ticker, start="2005-01-01", end=None):
-    data = yf.download(ticker, start=start, end=end)
-    return data['Close']
-
-def calculate_cumulative_change(series):
-    return (series / series.iloc[0] - 1) * 100
-
-def get_fred_data(api_key, series_id, start_date, end_date):
-    url = f"https://api.stlouisfed.org/fred/series/observations?series_id={series_id}&api_key={api_key}&file_type=json&observation_start={start_date}&observation_end={end_date}"
-    response = requests.get(url)
-
+def get_fred_data_with_preceding(api_key, series_id, start_date, end_date):
+    # Try to get data within the specified range
+    data = get_fred_data(api_key, series_id, start_date, end_date)
+    
+    if data and len(data) > 0:
+        return data, None  # Data within range, no preceding data needed
+    
+    # If no data in the range, fetch the earliest data point before the start date
+    preceding_url = f"https://api.stlouisfed.org/fred/series/observations?series_id={series_id}&api_key={api_key}&file_type=json&observation_end={start_date}&sort_order=desc&limit=1"
+    response = requests.get(preceding_url)
+    
     if response.status_code == 200:
         data = response.json()
-        if 'observations' in data:
-            return [(datetime.strptime(obs['date'], '%Y-%m-%d'), float(obs['value']))
-                    for obs in data['observations'] if obs['value'] != '.']
-    return None
-
-def calculate_average_and_fill_missing(data, start_date, end_date):
-    dates, values = zip(*data)
-    series = pd.Series(values, index=pd.to_datetime(dates))
+        if 'observations' in data and len(data['observations']) > 0:
+            obs = data['observations'][0]
+            preceding_date = datetime.strptime(obs['date'], '%Y-%m-%d')
+            preceding_value = float(obs['value'])
+            return [(preceding_date, preceding_value)], preceding_date
     
-    # Ensure the series covers the full range
-    full_range = pd.date_range(start=start_date, end=end_date)
-    series = series.reindex(full_range, method='pad')  # forward fill for missing values
-    
-    return series.mean(), series
+    return None, None
 
 def main():
     st.title("Stock Matrix Profile Analysis - Motif Juxtaposition")
@@ -194,19 +172,25 @@ def main():
             st.write(f"For the date range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
 
             # National Debt (GFDEBTN)
-            federal_debt_data = get_fred_data(FRED_API_KEY, "GFDEBTN", start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
+            federal_debt_data, debt_preceding_date = get_fred_data_with_preceding(FRED_API_KEY, "GFDEBTN", start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
             if federal_debt_data:
                 avg_federal_debt, filled_federal_debt = calculate_average_and_fill_missing(federal_debt_data, start_date, end_date)
-                st.write(f"**National Debt (Average):** ${avg_federal_debt:,.2f} million")
+                if debt_preceding_date:
+                    st.write(f"**National Debt (Average):** ${avg_federal_debt:,.2f} million (Earliest data from {debt_preceding_date.strftime('%Y-%m-%d')})")
+                else:
+                    st.write(f"**National Debt (Average):** ${avg_federal_debt:,.2f} million")
                 st.line_chart(filled_federal_debt)
             else:
                 st.error("Failed to retrieve federal debt data.")
 
             # Unemployment Rate (UNRATE)
-            unrate_data = get_fred_data(FRED_API_KEY, "UNRATE", start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
+            unrate_data, unrate_preceding_date = get_fred_data_with_preceding(FRED_API_KEY, "UNRATE", start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
             if unrate_data:
                 avg_unrate, filled_unrate = calculate_average_and_fill_missing(unrate_data, start_date, end_date)
-                st.write(f"**Unemployment Rate (Average):** {avg_unrate:.2f}%")
+                if unrate_preceding_date:
+                    st.write(f"**Unemployment Rate (Average):** {avg_unrate:.2f}% (Earliest data from {unrate_preceding_date.strftime('%Y-%m-%d')})")
+                else:
+                    st.write(f"**Unemployment Rate (Average):** {avg_unrate:.2f}%")
                 st.line_chart(filled_unrate)
             else:
                 st.error("Failed to retrieve unemployment rate data.")

@@ -27,8 +27,9 @@ def get_fred_data_with_preceding(api_key, series_id, start_date, end_date):
 
 def main():
     st.title("Stock Matrix Profile Analysis - Motif Juxtaposition")
-
+    print("Debug: Main function started")
     ticker = st.text_input("Enter stock ticker (e.g., QQQ):", "QQQ")
+    print(f"Debug: Ticker selected: {ticker}")
     
     # Date range selection
     col1, col2 = st.columns(2)

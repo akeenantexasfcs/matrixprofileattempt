@@ -121,12 +121,13 @@ def main():
                 st.write(f"Match {i} distance: {distance:.4f}")
 
             # Plotting
-            fig = plt.figure(figsize=(15, 20))
-            gs = GridSpec(3, 2, width_ratios=[3, 1], height_ratios=[1, 1, 1], figure=fig)
+            fig = plt.figure(figsize=(15, 30))
+            gs = GridSpec(4, 1, height_ratios=[1, 1, 1, 1], figure=fig)
 
-            ax1 = fig.add_subplot(gs[0, 0])
-            ax2 = fig.add_subplot(gs[1, 0])
-            ax3 = fig.add_subplot(gs[2, :])
+            ax1 = fig.add_subplot(gs[0])
+            ax2 = fig.add_subplot(gs[1])
+            ax3 = fig.add_subplot(gs[2])
+            ax4 = fig.add_subplot(gs[3])
             
             # Plot 1: Original time series
             date_range = pd.date_range(start=subsequence.index[0], periods=len(subsequence), freq='D')
@@ -206,7 +207,7 @@ def main():
             summary_df = pd.DataFrame(summary_data)
             st.table(summary_df)
 
-            # Fetch FRED data for National Debt and Unemployment Rate
+            # Fetch FRED data for National Debt, Unemployment Rate, 30-Year Treasury, and Core CPI
             st.subheader("Contextual Statistics")
             st.write(f"For the date range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
 
@@ -233,6 +234,30 @@ def main():
                 st.line_chart(filled_unrate)
             else:
                 st.error("Failed to retrieve unemployment rate data.")
+
+            # 30-Year Treasury (DGS30)
+            treasury_data, treasury_preceding_date = get_fred_data_with_preceding(FRED_API_KEY, "DGS30", start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
+            if treasury_data:
+                avg_treasury, filled_treasury = calculate_average_and_fill_missing(treasury_data, start_date, end_date)
+                if treasury_preceding_date:
+                    st.write(f"**30-Year Treasury Rate (Average):** {avg_treasury:.2f}% (Earliest data from {treasury_preceding_date.strftime('%Y-%m-%d')})")
+                else:
+                    st.write(f"**30-Year Treasury Rate (Average):** {avg_treasury:.2f}%")
+                st.line_chart(filled_treasury)
+            else:
+                st.error("Failed to retrieve 30-Year Treasury data.")
+
+# Core CPI (CPILFESL)
+            cpi_data, cpi_preceding_date = get_fred_data_with_preceding(FRED_API_KEY, "CPILFESL", start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
+            if cpi_data:
+                avg_cpi, filled_cpi = calculate_average_and_fill_missing(cpi_data, start_date, end_date)
+                if cpi_preceding_date:
+                    st.write(f"**Core CPI (Average):** {avg_cpi:.2f} (Earliest data from {cpi_preceding_date.strftime('%Y-%m-%d')})")
+                else:
+                    st.write(f"**Core CPI (Average):** {avg_cpi:.2f}")
+                st.line_chart(filled_cpi)
+            else:
+                st.error("Failed to retrieve Core CPI data.")
 
         except Exception as e:
             st.error(f"An error occurred: {str(e)}")

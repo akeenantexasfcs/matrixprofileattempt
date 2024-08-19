@@ -13,7 +13,7 @@ from matplotlib.dates import DateFormatter
 import stumpy
 from scipy.spatial.distance import euclidean
 import requests
-from datetime import datetime
+from datetime import datetime, date
 import yfinance as yf
 
 # Retrieve the FRED API key from Streamlit secrets
@@ -26,21 +26,30 @@ def calculate_cumulative_change(data):
     return (data.pct_change() + 1).cumprod() - 1
 
 def get_fred_data_with_preceding(api_key, series_id, start_date, end_date):
+    today = date.today()
+    if isinstance(start_date, str):
+        start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+    if isinstance(end_date, str):
+        end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+    
+    if start_date > today or end_date > today:
+        return None, None  # Return None for future dates
+    
     # Try to get data within the specified range
-    data = get_fred_data(api_key, series_id, start_date, end_date)
+    data = get_fred_data(api_key, series_id, start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
     
     if data and len(data) > 0:
         return data, None  # Data within range, no preceding data needed
     
     # If no data in the range, fetch the earliest data point before the start date
-    preceding_url = f"https://api.stlouisfed.org/fred/series/observations?series_id={series_id}&api_key={api_key}&file_type=json&observation_end={start_date}&sort_order=desc&limit=1"
+    preceding_url = f"https://api.stlouisfed.org/fred/series/observations?series_id={series_id}&api_key={api_key}&file_type=json&observation_end={start_date.strftime('%Y-%m-%d')}&sort_order=desc&limit=1"
     response = requests.get(preceding_url)
     
     if response.status_code == 200:
         data = response.json()
         if 'observations' in data and len(data['observations']) > 0:
             obs = data['observations'][0]
-            preceding_date = datetime.strptime(obs['date'], '%Y-%m-%d')
+            preceding_date = datetime.strptime(obs['date'], '%Y-%m-%d').date()
             preceding_value = float(obs['value'])
             return [(preceding_date, preceding_value)], preceding_date
     
@@ -53,7 +62,7 @@ def get_fred_data(api_key, series_id, start_date, end_date):
     if response.status_code == 200:
         data = response.json()
         if 'observations' in data:
-            return [(datetime.strptime(obs['date'], '%Y-%m-%d'), float(obs['value'])) for obs in data['observations'] if obs['value'] != '.']
+            return [(datetime.strptime(obs['date'], '%Y-%m-%d').date(), float(obs['value'])) for obs in data['observations'] if obs['value'] != '.']
     
     return None
 
@@ -64,16 +73,24 @@ def calculate_average_and_fill_missing(data, start_date, end_date):
     return df['value'].mean(), df
 
 def display_fred_data_with_preceding(series_name, fred_data, preceding_date, start_date, end_date):
+    if fred_data is None:
+        st.warning(f"No data available for {series_name} in the specified date range.")
+        return
+    
     if fred_data:
         avg_value, filled_df = calculate_average_and_fill_missing(fred_data, start_date, end_date)
-        if np.isnan(avg_value):
+        if np.isnan(avg_value) and preceding_date:
             earliest_value = filled_df['value'].iloc[0]  # Get the first non-NaN value
             st.write(f"**{series_name}:** {earliest_value:.2f} (Earliest data from {preceding_date.strftime('%Y-%m-%d')})")
-        else:
+        elif not np.isnan(avg_value):
             st.write(f"**{series_name} (Average):** {avg_value:.2f}")
-        st.line_chart(filled_df)
+        else:
+            st.warning(f"No data available for {series_name} in the specified date range.")
+        
+        if not filled_df.empty:
+            st.line_chart(filled_df)
     else:
-        st.error(f"Failed to retrieve {series_name} data.")
+        st.warning(f"No data available for {series_name} in the specified date range.")
 
 def main():
     st.title("Stock Matrix Profile Analysis - Motif Juxtaposition")
@@ -88,8 +105,14 @@ def main():
 
     if st.button("Analyze"):
         try:
+            # Check if the selected date range is in the future
+            today = date.today()
+            if start_date > today or end_date > today:
+                st.warning("The selected date range includes future dates. Please select a date range up to today.")
+                return
+
             # Fetch stock data from 2005 to the end date plus 30 days
-            data = get_data(ticker, start="2005-01-01", end=end_date + pd.Timedelta(days=30))
+            data = get_data(ticker, start="2005-01-01", end=min(end_date + pd.Timedelta(days=30), today))
 
             # Convert start_date and end_date to pandas Timestamp
             start_date = pd.Timestamp(start_date)

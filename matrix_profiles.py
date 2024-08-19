@@ -4,6 +4,27 @@
 # In[ ]:
 
 
+import streamlit as st
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.gridspec import GridSpec
+from matplotlib.dates import DateFormatter
+import stumpy
+from scipy.spatial.distance import euclidean
+import requests
+from datetime import datetime
+import yfinance as yf
+
+# Retrieve the FRED API key from Streamlit secrets
+FRED_API_KEY = st.secrets["FRED_API_KEY"]
+
+def get_data(ticker, start, end):
+    return yf.download(ticker, start=start, end=end)['Close']
+
+def calculate_cumulative_change(data):
+    return (data.pct_change() + 1).cumprod() - 1
+
 def get_fred_data_with_preceding(api_key, series_id, start_date, end_date):
     # Try to get data within the specified range
     data = get_fred_data(api_key, series_id, start_date, end_date)
@@ -24,6 +45,23 @@ def get_fred_data_with_preceding(api_key, series_id, start_date, end_date):
             return [(preceding_date, preceding_value)], preceding_date
     
     return None, None
+
+def get_fred_data(api_key, series_id, start_date, end_date):
+    url = f"https://api.stlouisfed.org/fred/series/observations?series_id={series_id}&api_key={api_key}&file_type=json&observation_start={start_date}&observation_end={end_date}"
+    response = requests.get(url)
+    
+    if response.status_code == 200:
+        data = response.json()
+        if 'observations' in data:
+            return [(datetime.strptime(obs['date'], '%Y-%m-%d'), float(obs['value'])) for obs in data['observations'] if obs['value'] != '.']
+    
+    return None
+
+def calculate_average_and_fill_missing(data, start_date, end_date):
+    df = pd.DataFrame(data, columns=['date', 'value']).set_index('date')
+    df = df.reindex(pd.date_range(start=start_date, end=end_date, freq='D'))
+    df['value'] = df['value'].ffill()
+    return df['value'].mean(), df
 
 def main():
     st.title("Stock Matrix Profile Analysis - Motif Juxtaposition")

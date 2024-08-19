@@ -206,28 +206,16 @@ def main():
             summary_df = pd.DataFrame(summary_data)
             st.table(summary_df)
 
-            # Fetch FRED data for National Debt, Unemployment Rate, 30-Year Treasury, and Core CPI
+            # Fetch FRED data for Unemployment Rate, 30-Year Treasury, and Core CPI
             st.subheader("Contextual Statistics")
             st.write(f"For the date range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
-
-            # National Debt (GFDEBTN)
-            federal_debt_data, debt_preceding_date = get_fred_data_with_preceding(FRED_API_KEY, "GFDEBTN", start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
-            if federal_debt_data:
-                avg_federal_debt, filled_federal_debt = calculate_average_and_fill_missing(federal_debt_data, start_date, end_date)
-                if debt_preceding_date:
-                    st.write(f"**National Debt (Average):** ${avg_federal_debt:,.2f} million (Earliest data from {debt_preceding_date.strftime('%Y-%m-%d')})")
-                else:
-                    st.write(f"**National Debt (Average):** ${avg_federal_debt:,.2f} million")
-                st.line_chart(filled_federal_debt)
-            else:
-                st.error("Failed to retrieve federal debt data.")
 
             # Unemployment Rate (UNRATE)
             unrate_data, unrate_preceding_date = get_fred_data_with_preceding(FRED_API_KEY, "UNRATE", start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
             if unrate_data:
                 avg_unrate, filled_unrate = calculate_average_and_fill_missing(unrate_data, start_date, end_date)
-                if unrate_preceding_date:
-                    st.write(f"**Unemployment Rate (Average):** {avg_unrate:.2f}% (Earliest data from {unrate_preceding_date.strftime('%Y-%m-%d')})")
+                if np.isnan(avg_unrate):
+                    st.write(f"**Unemployment Rate:** {filled_unrate.iloc[-1]:.2f}% (Earliest data from {unrate_preceding_date.strftime('%Y-%m-%d')})")
                 else:
                     st.write(f"**Unemployment Rate (Average):** {avg_unrate:.2f}%")
                 st.line_chart(filled_unrate)
@@ -238,20 +226,20 @@ def main():
             treasury_data, treasury_preceding_date = get_fred_data_with_preceding(FRED_API_KEY, "DGS30", start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
             if treasury_data:
                 avg_treasury, filled_treasury = calculate_average_and_fill_missing(treasury_data, start_date, end_date)
-                if treasury_preceding_date:
-                    st.write(f"**30-Year Treasury Rate (Average):** {avg_treasury:.2f}% (Earliest data from {treasury_preceding_date.strftime('%Y-%m-%d')})")
+                if np.isnan(avg_treasury):
+                    st.write(f"**30-Year Treasury Rate:** {filled_treasury.iloc[-1]:.2f}% (Earliest data from {treasury_preceding_date.strftime('%Y-%m-%d')})")
                 else:
                     st.write(f"**30-Year Treasury Rate (Average):** {avg_treasury:.2f}%")
                 st.line_chart(filled_treasury)
             else:
                 st.error("Failed to retrieve 30-Year Treasury data.")
 
-# Core CPI (CPILFESL)
+            # Core CPI (CPILFESL)
             cpi_data, cpi_preceding_date = get_fred_data_with_preceding(FRED_API_KEY, "CPILFESL", start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
             if cpi_data:
                 avg_cpi, filled_cpi = calculate_average_and_fill_missing(cpi_data, start_date, end_date)
-                if cpi_preceding_date:
-                    st.write(f"**Core CPI (Average):** {avg_cpi:.2f} (Earliest data from {cpi_preceding_date.strftime('%Y-%m-%d')})")
+                if np.isnan(avg_cpi):
+                    st.write(f"**Core CPI:** {filled_cpi.iloc[-1]:.2f} (Earliest data from {cpi_preceding_date.strftime('%Y-%m-%d')})")
                 else:
                     st.write(f"**Core CPI (Average):** {avg_cpi:.2f}")
                 st.line_chart(filled_cpi)

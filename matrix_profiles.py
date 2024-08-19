@@ -36,7 +36,7 @@ def get_fred_data_with_preceding(api_key, series_id, start_date, end_date):
     preceding_url = f"https://api.stlouisfed.org/fred/series/observations?series_id={series_id}&api_key={api_key}&file_type=json&observation_end={start_date}&sort_order=desc&limit=1"
     response = requests.get(preceding_url)
     
-    if response.status_code == 200:  # Corrected line
+    if response.status_code == 200:
         data = response.json()
         if 'observations' in data and len(data['observations']) > 0:
             obs = data['observations'][0]
@@ -67,7 +67,7 @@ def display_fred_data_with_preceding(series_name, fred_data, preceding_date, sta
     if fred_data:
         avg_value, filled_df = calculate_average_and_fill_missing(fred_data, start_date, end_date)
         if np.isnan(avg_value):
-            earliest_value = filled_df.iloc[-1]
+            earliest_value = filled_df['value'].iloc[0]  # Get the first non-NaN value
             st.write(f"**{series_name}:** {earliest_value:.2f} (Earliest data from {preceding_date.strftime('%Y-%m-%d')})")
         else:
             st.write(f"**{series_name} (Average):** {avg_value:.2f}")
